@@ -40,7 +40,7 @@ let g_default_cookie_age_sec = 10 * 60;
 let g_session_registration_timeout_sec = 60;
 
 // We will verify the "start-session" request by checking Authorization code
-// if "authorization" field exists in registration JWT. 401 error will be
+// if "authorization" field exists in registration JWT. 403 error will be
 // returned if the Authorization code is existed but not matched.
 // As Authorization code is optional, we will not do auth checking for
 // auth-code missing or is duplicated case.
@@ -270,7 +270,7 @@ fastify.post("/internal/StartSession", function (request, reply) {
   if (!g_pending_sessions[sessionId]) {
     // Unauthorized error.
     console.log("Unregistered session");
-    return reply.code(401).send();
+    return reply.code(403).send();
   }
   let sessionInfo = g_pending_sessions[sessionId];
   let reg_response = request.headers["secure-session-response"];
@@ -285,7 +285,7 @@ fastify.post("/internal/StartSession", function (request, reply) {
     const decoder = createDecoder();
     const payload = decoder(reg_response);
     if (!payload.key) {
-      return reply.code(401).send();
+      return reply.code(403).send();
     }
 
     sessionInfo.pemKey = jwkToPem(payload.key);
@@ -294,7 +294,7 @@ fastify.post("/internal/StartSession", function (request, reply) {
   } catch (e) {
     console.log("Failed to validate JWT");
     console.log(e);
-    return reply.code(401).send();
+    return reply.code(403).send();
   }
 
   // Check the AuthCode and challenge
@@ -304,7 +304,7 @@ fastify.post("/internal/StartSession", function (request, reply) {
   ) {
     // Unauthorized error.
     console.log("Incorrect authorization or challenge");
-    return reply.code(401).send();
+    return reply.code(403).send();
   }
 
   // TODO: check challenge expiration
@@ -344,7 +344,7 @@ fastify.post("/internal/RefreshSession", function (request, reply) {
   const session_id = request.headers["sec-secure-session-id"];
   if (!session_id || !g_sessions[session_id]) {
     console.log("Invalid session");
-    return reply.code(401).send();
+    return reply.code(403).send();
   }
 
   let sessionInfo = g_sessions[session_id];
@@ -353,7 +353,7 @@ fastify.post("/internal/RefreshSession", function (request, reply) {
     sessionInfo.challengeKey = getChallengeKey();
     console.log("Provided challenge");
     return reply
-      .code(401)
+      .code(403)
       .header(
         "Secure-Session-Challenge",
         `"${g_challenges[sessionInfo.challengeKey]}"`,
@@ -368,12 +368,12 @@ fastify.post("/internal/RefreshSession", function (request, reply) {
   } catch (e) {
     console.log("Failed to validate JWT");
     console.log(e);
-    return reply.code(401).send();
+    return reply.code(403).send();
   }
 
   if (g_challenges[sessionInfo.challengeKey] !== decoded.jti) {
     console.log("Invalid challenge response");
-    return reply.code(401).send();
+    return reply.code(403).send();
   }
 
   // Refresh all cookies for the session.
