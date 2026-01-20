@@ -250,7 +250,7 @@ fastify.post("/internal/StartSessionForm", function (request, reply) {
   return reply
     .code(303)
     .header("Location", "/")
-    .header("Sec-Session-Registration", headerStr)
+    .header("Secure-Session-Registration", headerStr)
     .send();
 });
 
@@ -273,10 +273,10 @@ fastify.post("/internal/StartSession", function (request, reply) {
     return reply.code(401).send();
   }
   let sessionInfo = g_pending_sessions[sessionId];
-  let reg_response = request.headers["sec-session-response"];
+  let reg_response = request.headers["secure-session-response"];
   if (!reg_response) {
     // Bad Request error.
-    console.log("No sec-session-response");
+    console.log("No secure-session-response");
     return reply.code(400).send();
   }
 
@@ -341,21 +341,21 @@ fastify.post("/internal/RefreshSession", function (request, reply) {
   let params = {};
   params.cookies = request.cookies;
 
-  const session_id = request.headers["sec-session-id"];
+  const session_id = request.headers["sec-secure-session-id"];
   if (!session_id || !g_sessions[session_id]) {
     console.log("Invalid session");
     return reply.code(401).send();
   }
 
   let sessionInfo = g_sessions[session_id];
-  let jwt = request.headers["sec-session-response"];
+  let jwt = request.headers["secure-session-response"];
   if (!jwt) {
     sessionInfo.challengeKey = getChallengeKey();
     console.log("Provided challenge");
     return reply
       .code(401)
       .header(
-        "Sec-Session-Challenge",
+        "Secure-Session-Challenge",
         `"${g_challenges[sessionInfo.challengeKey]}"`,
       )
       .send();
