@@ -103,7 +103,7 @@ class SessionInfo {
       refresh_url: _obj.refreshUrl,
       scope: {
         origin: "https://" + g_listening_host,
-        include_site: true,
+        include_site: false,
         defer_requests: true,
         scope_specification: this.scopeSpecification,
       },
@@ -138,8 +138,9 @@ class CookieInfo {
   }
 
   get attributes() {
-    let attributeStr = `Domain=${this.domain}; Path=${this.path}; Max-Age=${this.maxAgeInSec}; SameSite=${this.sameSite};`;
-    attributeStr += "Expires=" + this.expires.toUTCString() + ";";
+    // let attributeStr = `Domain=${this.domain}; Path=${this.path}; Max-Age=${this.maxAgeInSec}; SameSite=${this.sameSite};`;
+    // attributeStr += "Expires=" + this.expires.toUTCString() + ";";
+    let attributeStr = `Domain=${this.domain}; Path=${this.path}; SameSite=${this.sameSite};`;
     if (this.secure) {
       attributeStr += " Secure;";
     }
@@ -194,16 +195,19 @@ fastify.get("/", function (request, reply) {
 
 fastify.post("/internal/StartSessionForm", function (request, reply) {
   console.log("/internal/StartSessionForm");
+  console.log("/internal/StartSessionForm request.body = ", request.body);
   let scopeSpecification = [];
   scopeSpecification.push({
     type: "include",
     domain: g_listening_host,
-    path: request.body.cinclude,
+    path: "/trusted",
+    // path: request.body.cinclude,
   });
   scopeSpecification.push({
     type: "exclude",
     domain: g_listening_host,
-    path: request.body.cexl,
+    path: "/untrusted",
+    // path: request.body.cexl,
   });
   // If /internal is in-scope, we can try to apply DBSC to refresh requests
   scopeSpecification.push({
@@ -219,6 +223,7 @@ fastify.post("/internal/StartSessionForm", function (request, reply) {
       request.body.cexpire,
     ),
   );
+  console.log("startsessionform scopeSpecification = ", scopeSpecification);
   let newSession = new SessionInfo(
     scopeSpecification,
     cookies,
@@ -274,6 +279,7 @@ fastify.post("/internal/StartSession", function (request, reply) {
   }
   let sessionInfo = g_pending_sessions[sessionId];
   let reg_response = request.headers["secure-session-response"];
+  console.log("Delete this log: reg_response = ", reg_response);
   if (!reg_response) {
     // Bad Request error.
     console.log("No secure-session-response");
@@ -284,12 +290,21 @@ fastify.post("/internal/StartSession", function (request, reply) {
   try {
     const decoder = createDecoder();
     const payload = decoder(reg_response);
-    if (!payload.key) {
+    console.log("Delete this log: payload = ", payload);
+    const decodeComplete = createDecoder({ complete: true })
+    const sections = decodeComplete(reg_response)
+    console.log("Delete this log: complete = ", sections);
+    console.log("Delete this log: complete header jwk = ", sections.header.jwk);
+    if (!sections.header.jwk) {
       console.log("Failed to decode secure-session-response");
       return reply.code(403).send();
     }
+    // if (!payload.key) {
+    //   console.log("Failed to decode secure-session-response");
+    //   return reply.code(403).send();
+    // }
 
-    sessionInfo.pemKey = jwkToPem(payload.key);
+    sessionInfo.pemKey = jwkToPem(sections.header.jwk);
     let verifier = createVerifier({ key: sessionInfo.pemKey });
     decoded = verifier(reg_response);
   } catch (e) {
