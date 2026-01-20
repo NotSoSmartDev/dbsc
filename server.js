@@ -285,6 +285,7 @@ fastify.post("/internal/StartSession", function (request, reply) {
     const decoder = createDecoder();
     const payload = decoder(reg_response);
     if (!payload.key) {
+      console.log("Failed to decode secure-session-response");
       return reply.code(403).send();
     }
 
